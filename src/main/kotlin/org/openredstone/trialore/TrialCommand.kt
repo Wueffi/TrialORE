@@ -37,6 +37,9 @@ class TrialCommand(
     @Description("Information about a TrialORE")
     fun onInfo(player: Player) {
         player.renderMiniMessage("Current TrialORE version: <gray>$version")
+        player.renderMiniMessage("For more details on commands, " +
+            "<aqua><click:open_url:'https://github.com/OpenRedstoneEngineers/TrialORE/blob/main/README.md'>" +
+            "<hover:show_text:'Go to README'>view the README</hover></click>")
     }
 
     @Subcommand("history")
