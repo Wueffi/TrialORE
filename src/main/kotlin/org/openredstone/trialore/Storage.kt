@@ -68,16 +68,11 @@ class Storage(
         }[Trial.id]
     }
 
-    fun endTrial(trialId: Int, passed: Boolean): List<String> = transaction(database) {
+    fun endTrial(trialId: Int, passed: Boolean) = transaction(database) {
         Trial.update({ Trial.id eq trialId}) {
             it[end] = now()
             it[Trial.passed] = passed
         }
-        Note.selectAll().where {
-            Note.trial_id eq trialId
-        }.map {
-            it[Note.value]
-        }.toList()
     }
 
     fun getTrials(testificate: UUID): List<Int> = transaction(database) {

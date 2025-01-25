@@ -170,13 +170,8 @@ class TrialOre : JavaPlugin(), Listener {
         if (finalNote != null) {
             this.database.insertNote(trialId, finalNote)
         }
-        println(this.trialMapping.size.toString())
         this.trialMapping.remove(testificate)
-        println(this.trialMapping.size.toString())
-        val notes = this.database.endTrial(trialId, passed)
-        for (trial in notes) {
-            println(trial)
-        }
+        this.database.endTrial(trialId, passed)
         if (passed) {
             setLpParent(testificate, config.builderGroup)
         } else {
