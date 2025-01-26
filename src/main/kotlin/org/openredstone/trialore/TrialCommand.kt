@@ -90,6 +90,9 @@ class TrialCommand(
         if (trialORE.getParent(testificate.uniqueId) != trialORE.config.studentGroup) {
             throw TrialOreException("That individual is ineligible for trial due to rank")
         }
+        if (player.uniqueId == testificate.uniqueId) {
+            throw TrialOreException("You cannot trial yourself")
+        }
         if (!app.startsWith("https://discourse.openredstone.org/")) {
             throw TrialOreException("Invalid app: $app")
         }
@@ -121,11 +124,10 @@ class TrialCommand(
         fun onPass(player: Player) {
             val trialMeta = trialORE.trialMapping[player.uniqueId]
                 ?: throw TrialOreException("Invalid trial mapping. This is likely a bug")
-            val testificate = trialMeta.first
             val trialId = trialMeta.second
             player.renderMessage("Testificate has passed their trial")
             player.renderMessage("You may now communicate this pass with the testificate how you like")
-            trialORE.endTrial(testificate, trialId, true)
+            trialORE.endTrial(player.uniqueId, trialId, true)
         }
 
         @CommandAlias("trialfail")
@@ -134,11 +136,10 @@ class TrialCommand(
         fun onFail(player: Player) {
             val trialMeta = trialORE.trialMapping[player.uniqueId]
                 ?: throw TrialOreException("Invalid trial mapping. This is likely a bug")
-            val testificate = trialMeta.first
             val trialId = trialMeta.second
             player.renderMessage("Testificate has failed their trial")
             player.renderMessage("You may now communicate this pass with the testificate how you like")
-            trialORE.endTrial(testificate, trialId, false)
+            trialORE.endTrial(player.uniqueId, trialId, false)
         }
     }
 }

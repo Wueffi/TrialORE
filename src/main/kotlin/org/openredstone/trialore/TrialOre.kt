@@ -166,12 +166,14 @@ class TrialOre : JavaPlugin(), Listener {
         setLpParent(testificate, config.testificateGroup)
     }
 
-    fun endTrial(testificate: UUID, trialId: Int, passed: Boolean, finalNote: String? = null) {
+    fun endTrial(trialer: UUID, trialId: Int, passed: Boolean, finalNote: String? = null) {
         if (finalNote != null) {
             this.database.insertNote(trialId, finalNote)
         }
-        this.trialMapping.remove(testificate)
         this.database.endTrial(trialId, passed)
+        val testificate = this.trialMapping[trialer]?.first
+            ?: throw TrialOreException("Invalid trial mapping. This is likely a bug")
+        this.trialMapping.remove(trialer)
         if (passed) {
             setLpParent(testificate, config.builderGroup)
         } else {
