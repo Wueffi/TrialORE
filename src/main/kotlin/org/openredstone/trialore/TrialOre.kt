@@ -22,7 +22,7 @@ import java.io.File
 import java.util.*
 import java.util.logging.Level
 
-val VERSION = "1.0"
+val VERSION = "1.1"
 
 const val baseMessage = "<dark_gray>[<gray>TrialORE<dark_gray>]<white> <message>"
 
@@ -43,6 +43,11 @@ data class TrialOreConfig(
     val builderGroup: String = "builder",
     val webhook: String = "webhook",
     val abandonForgiveness: Long = 6000
+)
+
+data class TrialMeta(
+    val testificate: UUID,
+    val trialId: Int
 )
 
 class TrialOre : JavaPlugin(), Listener {
@@ -69,6 +74,11 @@ class TrialOre : JavaPlugin(), Listener {
                 if (!trialMapping.containsKey(it.issuer.player.uniqueId)) {
                     throw TrialOreException("You are not trialing anyone")
                 }
+            }
+            commandContexts.registerIssuerOnlyContext(TrialMeta::class.java) { context ->
+                val meta = trialMapping[context.player.uniqueId]
+                    ?: throw TrialOreException("Invalid trial mapping. This is likely a bug")
+                TrialMeta(meta.first, meta.second)
             }
             commandCompletions.registerCompletion("usernameCache") { database.usernameToUuidCache.keys }
             registerCommand(TrialCommand(this@TrialOre, VERSION))

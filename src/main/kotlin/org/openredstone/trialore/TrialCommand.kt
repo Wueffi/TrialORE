@@ -103,15 +103,60 @@ class TrialCommand(
 
     @Subcommand("note")
     @Conditions("trialing")
-    @Description("Add a note to an active trial")
-    fun onNote(player: Player, note: String) {
-        val trialId = trialORE.trialMapping[player.uniqueId]?.second
-            ?: throw TrialOreException("Invalid trial mapping. This is likely a bug")
-        trialORE.database.insertNote(trialId, note.trim())
-        player.renderMiniMessage("Saving note <gray>\"$note\"")
-    }
+    @Description("Manage notes")
+    inner class Note : BaseCommand() {
 
-    //@Subcommand("time??")
+        @Subcommand("add")
+        @CommandAlias("trialnote")
+        @Description("Add a note to an active trial")
+        fun onNote(player: Player, trialMeta: TrialMeta, note: String) {
+            trialORE.database.insertNote(trialMeta.trialId, note.trim())
+            player.renderMiniMessage("Saving note <gray>\"$note\"")
+        }
+
+        @Subcommand("list")
+        @CommandAlias("trialnotes")
+        @Description("List all current notes")
+        fun onList(player: Player, trialMeta: TrialMeta) {
+            val notes = trialORE.database.getNotes(trialMeta.trialId)
+            if (notes.isEmpty()) {
+                player.renderMiniMessage("No notes")
+                return
+            }
+            player.renderMiniMessage("Current notes:")
+            for (note in notes) {
+                val cleanedNote = note.value
+                    .replace("\'", "\\\'")
+                    .replace("\"", "\\\"")
+                player.renderMiniMessage("<click:suggest_command:'/trial note edit ${note.key} ${cleanedNote}'>" +
+                    "<hover:show_text:'Edit note'> <yellow>✏</hover></click><gray> |" +
+                    "<click:suggest_command:'/trial note remove ${note.key}'>" +
+                    "<hover:show_text:'Remove note'> <red>✖</hover></click><gray> : <white>" +
+                    note.value
+                )
+            }
+        }
+
+        @Subcommand("edit")
+        @Description("Edit note")
+        fun onEdit(player: Player, trialMeta: TrialMeta, noteId: Int, note: String) {
+            val notes = trialORE.database.getNotes(trialMeta.trialId)
+            if (notes.isEmpty()) throw TrialOreException("No notes found")
+            if (!notes.keys.contains(noteId)) throw TrialOreException("Invalid note $note")
+            trialORE.database.updateNote(noteId, note)
+            player.renderMiniMessage("Updated note <gray>$note</gray>")
+        }
+
+        @Subcommand("remove")
+        @Description("Remove a note")
+        fun onRemove(player: Player, trialMeta: TrialMeta, note: Int) {
+            val notes = trialORE.database.getNotes(trialMeta.trialId)
+            if (notes.isEmpty()) throw TrialOreException("No notes found")
+            if (!notes.keys.contains(note)) throw TrialOreException("Invalid note $note")
+            trialORE.database.deleteNote(note)
+            player.renderMiniMessage("Removed <gray>${notes[note]}")
+        }
+    }
 
     @Subcommand("finish")
     @Conditions("trialing")
@@ -121,25 +166,19 @@ class TrialCommand(
         @CommandAlias("trialpass")
         @Subcommand("pass")
         @Description("Accept this testificate's trial")
-        fun onPass(player: Player) {
-            val trialMeta = trialORE.trialMapping[player.uniqueId]
-                ?: throw TrialOreException("Invalid trial mapping. This is likely a bug")
-            val trialId = trialMeta.second
+        fun onPass(player: Player, trialMeta: TrialMeta) {
             player.renderMessage("Testificate has passed their trial")
             player.renderMessage("You may now communicate this pass with the testificate how you like")
-            trialORE.endTrial(player.uniqueId, trialId, true)
+            trialORE.endTrial(player.uniqueId, trialMeta.trialId, true)
         }
 
         @CommandAlias("trialfail")
         @Subcommand("fail")
         @Description("Fail this testificate's trial")
-        fun onFail(player: Player) {
-            val trialMeta = trialORE.trialMapping[player.uniqueId]
-                ?: throw TrialOreException("Invalid trial mapping. This is likely a bug")
-            val trialId = trialMeta.second
+        fun onFail(player: Player, trialMeta: TrialMeta) {
             player.renderMessage("Testificate has failed their trial")
             player.renderMessage("You may now communicate this pass with the testificate how you like")
-            trialORE.endTrial(player.uniqueId, trialId, false)
+            trialORE.endTrial(player.uniqueId, trialMeta.trialId, false)
         }
     }
 }

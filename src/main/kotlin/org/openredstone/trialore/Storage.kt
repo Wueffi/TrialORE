@@ -1,6 +1,7 @@
 package org.openredstone.trialore
 
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.*
 
@@ -111,6 +112,24 @@ class Storage(
         Note.insert {
             it[trial_id] = trialId
             it[value] = note
+        }
+    }
+
+    fun updateNote(noteId: Int, note: String) = transaction(database) {
+        Note.update({ Note.id eq noteId }) {
+            it[value] = note
+        }
+    }
+
+    fun deleteNote(noteId: Int) = transaction(database) {
+        Note.deleteWhere { id eq noteId }
+    }
+
+    fun getNotes(trialId: Int): Map<Int, String> = transaction(database) {
+        return@transaction Note.selectAll().where {
+            Note.trial_id eq trialId
+        }.associate {
+            it[Note.id] to it[Note.value]
         }
     }
 
