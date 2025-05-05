@@ -200,6 +200,7 @@ class TrialOre : JavaPlugin(), Listener {
             user.data().remove(oldNode)
             val newNode = InheritanceNode.builder(parent).value(true).build()
             user.data().add(newNode)
+            user.setPrimaryGroup(parent)
             luckPerms.userManager.saveUser(user).thenRun {
                 luckPerms.messagingService.toNullable()?.pushUserUpdate(user)
             }

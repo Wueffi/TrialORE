@@ -1,10 +1,12 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "2.0.10"
-    id("com.gradleup.shadow") version "8.3.0"
-    id("org.jetbrains.kotlin.kapt") version "1.9.22"
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
+    val kotlinVersion = "2.1.10"
+    kotlin("jvm") version kotlinVersion
+    kotlin("kapt") version kotlinVersion
+    kotlin("plugin.serialization") version "1.9.22"
+    id("com.gradleup.shadow") version "8.3.6"
 }
 
 group = "org.openredstone.trialore"
@@ -12,10 +14,9 @@ version = "1.1"
 
 repositories {
     mavenCentral()
-
     maven("https://jitpack.io")
     maven("https://repo.papermc.io/repository/maven-public/")
-    maven("https://repo.aikar.co/nexus/content/groups/aikar/")
+    maven("https://repo.aikar.co/content/groups/aikar/")
 }
 
 dependencies {
@@ -32,8 +33,15 @@ dependencies {
 }
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "22"
-    kotlinOptions.javaParameters = true
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_21)
+    }
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
 }
 
 tasks.shadowJar {
