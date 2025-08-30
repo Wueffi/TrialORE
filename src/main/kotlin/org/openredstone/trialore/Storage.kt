@@ -24,6 +24,16 @@ object Trial : Table("trial") {
     override val primaryKey = PrimaryKey(id)
 }
 
+object Test : Table("test") {
+    val id = integer("id").autoIncrement()
+    val testificate = varchar("testificate", 36).index()
+    val start = integer("start")
+    val end = integer("end").nullable()
+    val passed = bool("passed").nullable()
+    val wrong = integer("wrong").nullable()
+    override val primaryKey = PrimaryKey(id)
+}
+
 object UsernameCache : Table("username_cache") {
     val uuid = varchar("cache_user", 36).uniqueIndex()
     val username = varchar("cache_username", 16).index()
@@ -41,6 +51,15 @@ data class TrialInfo(
     val attempt: Int = 0
 )
 
+data class TestInfo(
+    val testificate: UUID,
+    val start: Int,
+    val end: Int,
+    val passed: Boolean,
+    val wrong: Int,
+    val attempt: Int = 0
+)
+
 fun now() = System.currentTimeMillis().floorDiv(1000).toInt()
 
 class Storage(
@@ -55,8 +74,8 @@ class Storage(
     }
 
     private fun initTables() = transaction(database) {
-        SchemaUtils.create(
-            Note, Trial, UsernameCache
+        SchemaUtils.createMissingTablesAndColumns(
+            Note, Trial, UsernameCache, Test
         )
     }
 
@@ -69,10 +88,25 @@ class Storage(
         }[Trial.id]
     }
 
+    fun insertTest(testificate: UUID): Int = transaction(database) {
+        Test.insert {
+            it[Test.testificate] = testificate.toString()
+            it[start] = now()
+        }[Test.id]
+    }
+
     fun endTrial(trialId: Int, passed: Boolean) = transaction(database) {
         Trial.update({ Trial.id eq trialId}) {
             it[end] = now()
             it[Trial.passed] = passed
+        }
+    }
+
+    fun endTest(testId: Int, passed: Boolean, wrong: Int) = transaction(database) {
+        Test.update( {Test.id eq testId}) {
+            it[end] = now()
+            it[Test.passed] = passed
+            it[Test.wrong] = wrong
         }
     }
 
@@ -81,6 +115,14 @@ class Storage(
             Trial.testificate eq testificate.toString()
         }.map {
             it[Trial.id]
+        }
+    }
+
+    fun getTests(testificate: UUID): List<Int> = transaction(database) {
+        Test.selectAll().where {
+            Test.testificate eq testificate.toString()
+        }.map {
+            it[Test.id]
         }
     }
 
@@ -102,9 +144,28 @@ class Storage(
         )
     }
 
+    fun getTestInfo(testId: Int): TestInfo = transaction(database) {
+        val resultRow = Test.selectAll().where {
+            Test.id eq testId
+        }.firstOrNull()
+        TestInfo(
+            UUID.fromString(resultRow!![Test.testificate]),
+            resultRow[Test.start],
+            resultRow[Test.end] ?: 0,
+            resultRow[Test.passed] ?: false,
+            resultRow[Test.wrong] ?: 0
+        )
+    }
+
     fun getTrialCount(testificate: UUID): Int = transaction(database) {
         Trial.selectAll().where {
             Trial.testificate eq testificate.toString()
+        }.count().toInt()
+    }
+
+    fun getTestCount(testificate: UUID): Int = transaction(database) {
+        Test.selectAll().where {
+            Test.testificate eq testificate.toString()
         }.count().toInt()
     }
 

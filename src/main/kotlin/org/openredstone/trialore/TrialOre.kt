@@ -21,6 +21,7 @@ import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 import java.util.*
 import java.util.logging.Level
+import kotlin.time.Duration.Companion.seconds
 
 val VERSION = "1.1"
 
@@ -50,11 +51,17 @@ data class TrialMeta(
     val trialId: Int
 )
 
+data class TestMeta(
+    val testificate: UUID,
+    val testId: Int
+)
+
 class TrialOre : JavaPlugin(), Listener {
     lateinit var database: Storage
     lateinit var luckPerms: LuckPerms
     lateinit var config: TrialOreConfig
     val trialMapping: MutableMap<UUID, Pair<UUID, Int>> = mutableMapOf()
+    val testMapping: MutableMap<UUID, Int> = mutableMapOf()
     private val mapper = ObjectMapper(YAMLFactory())
     override fun onEnable() {
         loadConfig()
@@ -75,13 +82,31 @@ class TrialOre : JavaPlugin(), Listener {
                     throw TrialOreException("You are not trialing anyone")
                 }
             }
+            commandConditions.addCondition("notTesting") {
+                // Condition "notTesting" will fail  if the person is taking a test
+                if (testMapping.containsKey(it.issuer.player.uniqueId)) {
+                    throw TrialOreException("You are already taking a Test")
+                }
+            }
+            commandConditions.addCondition("testing") {
+                // Condition "notTesting" will fail  if the person is taking a test
+                if (!testMapping.containsKey(it.issuer.player.uniqueId)) {
+                    throw TrialOreException("You are not taking a Test")
+                }
+            }
             commandContexts.registerIssuerOnlyContext(TrialMeta::class.java) { context ->
                 val meta = trialMapping[context.player.uniqueId]
                     ?: throw TrialOreException("Invalid trial mapping. This is likely a bug")
                 TrialMeta(meta.first, meta.second)
             }
+            commandContexts.registerIssuerOnlyContext(TestMeta::class.java) { context ->
+                val meta = testMapping[context.player.uniqueId]
+                    ?: throw TrialOreException("Invalid test mapping. This is likely a bug")
+                TestMeta(context.player.uniqueId, meta)
+            }
             commandCompletions.registerCompletion("usernameCache") { database.usernameToUuidCache.keys }
             registerCommand(TrialCommand(this@TrialOre, VERSION))
+            registerCommand(TestCommand(this@TrialOre))
             setDefaultExceptionHandler(::handleCommandException, false)
         }
     }
@@ -168,12 +193,22 @@ class TrialOre : JavaPlugin(), Listener {
                 }, config.abandonForgiveness)
             }
         }
+        testMapping.forEach { (testtaker, testId) ->
+            if (uuid == testtaker) {
+                endTest(testtaker, testId, false, 25)
+            }
+        }
     }
 
     fun startTrial(trialer: UUID, testificate: UUID, app: String) {
         val trialId = this.database.insertTrial(trialer, testificate, app)
         this.trialMapping[trialer] = Pair(testificate, trialId)
         setLpParent(testificate, config.testificateGroup)
+    }
+
+    fun startTest(testificate: UUID) {
+        val testId = this.database.insertTest(testificate)
+        this.testMapping[testificate] = testId
     }
 
     fun endTrial(trialer: UUID, trialId: Int, passed: Boolean, finalNote: String? = null) {
@@ -190,6 +225,12 @@ class TrialOre : JavaPlugin(), Listener {
             setLpParent(testificate, config.studentGroup)
         }
         sendReport(database.getTrialInfo(trialId), database.getTrialCount(testificate))
+    }
+
+    fun endTest(testificate: UUID, testId: Int, passed: Boolean, wrong: Int) {
+        this.database.endTest(testId, passed, wrong)
+        this.testMapping.remove(testificate)
+        sendTestReport(database.getTestInfo(testId), database.getTestCount(testificate))
     }
 
     fun getParent(uuid: UUID): String? = luckPerms.userManager.getUser(uuid)?.primaryGroup
@@ -239,6 +280,35 @@ class TrialOre : JavaPlugin(), Listener {
                         mapOf(
                             "name" to "State",
                             "value" to result
+                        )
+                    )
+                )
+            )
+        )
+        khttp.post(config.webhook, json = payload)
+    }
+
+    private fun sendTestReport(testInfo: TestInfo, testCount: Int) {
+        val correct = 25 - testInfo.wrong
+        val percentage = (correct.toDouble() / 25.toDouble()) * 100
+        val lines = mutableListOf(
+            "**Testificate**: ${database.uuidToUsernameCache[testInfo.testificate]}",
+            "**Attempt**: $testCount",
+            "**Start**: <t:${testInfo.start}:F>",
+            "**End**: <t:${testInfo.end}:F>",
+            "**Wrong**: ${testInfo.wrong}",
+            "**Percentage**: ${"%.2f".format(percentage)}%"
+        )
+        val payload = mapOf(
+            "embeds" to listOf(
+                mapOf(
+                    "title" to database.uuidToUsernameCache[testInfo.testificate],
+                    "description" to lines.joinToString("\n"),
+                    "color" to 0x5fff58,
+                    "fields" to listOf(
+                        mapOf(
+                            "name" to "State",
+                            "value" to "*Passed*"
                         )
                     )
                 )
