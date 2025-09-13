@@ -26,7 +26,12 @@ class TestCommand(
         val tests = trialORE.database.getTests(testificate.uniqueId)
         val lastThreeTests = tests.takeLast(3)
         val lastThreeWithin24h = lastThreeTests.all { test ->
-            val startTime = trialORE.database.getTestInfo(test).start.toLong()
+            val testInfo = trialORE.database.getTestInfo(test)
+            if (testInfo == null) {
+                player.sendMessage("Test id was null. Report this to Staff.")
+                return
+            }
+            val startTime = testInfo.start.toLong()
             now - startTime <= 24 * 60 * 60 * 1000
         }
         if (lastThreeWithin24h && lastThreeTests.size == 3) {
@@ -53,6 +58,10 @@ class TestCommand(
         player.renderMiniMessage("<gray>$target has taken ${tests.size} tests")
         tests.forEachIndexed { index, test ->
             val testInfo = trialORE.database.getTestInfo(test)
+            if (testInfo == null) {
+                player.sendMessage("Test id was null. If you are Nick, have fun. If not, report to Nick.")
+                return
+            }
             if (testInfo.passed) {
                 val startTime = testInfo.start.toLong()
                 val timestamp = getRelativeTimestamp(startTime)
@@ -73,6 +82,10 @@ class TestCommand(
     @Description("Get a test from an ID")
     fun onInfo(player: Player, @Single id: Int) {
         val testInfo = trialORE.database.getTestInfo(id)
+        if (testInfo == null) {
+            player.sendMessage("Test id was null. If you are Nick, have fun. If not, report to Nick.")
+            return
+        }
         val startTime = testInfo.start.toLong()
         val duration = testInfo.end.toLong() - startTime
         var rotatingLight = ""
@@ -100,6 +113,10 @@ class TestCommand(
         player.renderMiniMessage("<gray>You have taken ${tests.size} tests")
         tests.forEachIndexed { index, testid ->
             val testInfo = trialORE.database.getTestInfo(testid)
+            if (testInfo == null) {
+                player.sendMessage("Test id was null. Report this to Staff.")
+                return
+            }
             val state = if (testInfo.passed) {
                 "<green>Passed</green>"
             } else {

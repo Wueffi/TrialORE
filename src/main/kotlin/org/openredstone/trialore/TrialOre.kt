@@ -224,7 +224,8 @@ class TrialOre : JavaPlugin(), Listener {
     fun endTest(testificate: UUID, testId: Int, passed: Boolean, wrong: Int) {
         this.database.endTest(testId, passed, wrong)
         this.testMapping.remove(testificate)
-        if (passed){ sendTestReport(database.getTestInfo(testId), database.getTestCount(testificate))}
+        val testInfo = database.getTestInfo(testId)
+        if (passed && testInfo != null){ sendTestReport(testInfo, database.getTestCount(testificate))}
     }
 
     fun getParent(uuid: UUID): String? = luckPerms.userManager.getUser(uuid)?.primaryGroup

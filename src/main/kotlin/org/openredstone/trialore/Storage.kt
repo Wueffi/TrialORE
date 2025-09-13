@@ -2,6 +2,7 @@ package org.openredstone.trialore
 
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.*
 
@@ -144,12 +145,10 @@ class Storage(
         )
     }
 
-    fun getTestInfo(testId: Int): TestInfo = transaction(database) {
-        val resultRow = Test.selectAll().where {
-            Test.id eq testId
-        }.firstOrNull()
+    fun getTestInfo(testId: Int): TestInfo? = transaction(database) {
+        val resultRow = Test.selectAll().where { Test.id eq testId }.firstOrNull() ?: return@transaction null
         TestInfo(
-            UUID.fromString(resultRow!![Test.testificate]),
+            UUID.fromString(resultRow[Test.testificate]),
             resultRow[Test.start],
             resultRow[Test.end] ?: 0,
             resultRow[Test.passed] ?: false,
