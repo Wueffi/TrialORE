@@ -17,13 +17,27 @@ class TestCommand(
     @Description("Take a test")
     fun onStart(player: Player) {
         val testificate = player
+
         if (trialORE.testMapping.containsKey(testificate.uniqueId)) {
             throw TrialOreException("You are already testing. This is 99.9% a Bug. Contact Nick :D")
+        }
+
+        val now = System.currentTimeMillis()
+        val tests = trialORE.database.getTests(testificate.uniqueId)
+        val lastThreeTests = tests.takeLast(3)
+        val lastThreeWithin24h = lastThreeTests.all { test ->
+            val startTime = trialORE.database.getTestInfo(test).start.toLong()
+            now - startTime <= 24 * 60 * 60 * 1000
+        }
+        if (lastThreeWithin24h && lastThreeTests.size == 3) {
+            player.renderMiniMessage("<red>Warning: Your last 3 tests were all taken within the last 24 hours! Do /test history to see them.</red>")
+            return
         }
         testificate.renderMessage("Starting your test!")
         testificate.renderMiniMessage("<red>Note: When answering in binary, don't use a prefix like 0b.")
         trialORE.startTest(testificate.uniqueId)
     }
+
 
     @Subcommand("list")
     @CommandPermission("trialore.list")
@@ -45,9 +59,35 @@ class TestCommand(
                 val wrong = testInfo.wrong
                 val correct = 25 - wrong
                 val percentage = (correct.toDouble() / 25.toDouble()) * 100
+                val duration = testInfo.end.toLong() - startTime
+                var rotatingLight = ""
+                if (duration <= 45 * 1000) { rotatingLight = ":rotating_light: :rotating_light: :rotating_light: Test done in ${duration}s"}
                 player.renderMiniMessage("<hover:show_text:'At <gray>${getDate(startTime)}<white>" +
-                        ", $wrong wrong Answers'>Test: ${index+1} (${percentage}), $timestamp</hover>")
+                        ", $wrong wrong Answers'>Test: ${index+1} (${percentage}), $timestamp</hover> $rotatingLight")
             }
+        }
+    }
+
+    @Subcommand("info")
+    @CommandPermission("trialore.list")
+    @Description("Get a test from an ID")
+    fun onInfo(player: Player, @Single id: Int) {
+        val testInfo = trialORE.database.getTestInfo(id)
+        val startTime = testInfo.start.toLong()
+        val duration = testInfo.end.toLong() - startTime
+        var rotatingLight = ""
+        if (duration <= 45 * 1000) { rotatingLight = ":rotating_light: :rotating_light: :rotating_light: Test done in ${duration}s"}
+        val timestamp = getRelativeTimestamp(startTime)
+        val wrong = testInfo.wrong
+        val testificate = testInfo.testificate
+        val correct = 25 - wrong
+        val percentage = (correct.toDouble() / 25.toDouble()) * 100
+        if (testInfo.passed) {
+            player.renderMiniMessage("<hover:show_text:'<green>Passed! At <gray>${getDate(startTime)}<white> by $testificate" +
+                    ", $wrong wrong Answers'>Test: $id (${percentage}), $timestamp</hover> $rotatingLight")
+        } else {
+            player.renderMiniMessage("<hover:show_text:'<red>Failed! At <gray>${getDate(startTime)}<white> by $testificate" +
+                    ", $wrong wrong Answers'>Test: $id (${percentage}), $timestamp</hover>")
         }
     }
 
@@ -58,8 +98,8 @@ class TestCommand(
         val testificate = player.uniqueId
         val tests = trialORE.database.getTests(testificate)
         player.renderMiniMessage("<gray>You have taken ${tests.size} tests")
-        tests.forEachIndexed { index, test ->
-            val testInfo = trialORE.database.getTestInfo(test)
+        tests.forEachIndexed { index, testid ->
+            val testInfo = trialORE.database.getTestInfo(testid)
             val state = if (testInfo.passed) {
                 "<green>Passed</green>"
             } else {
@@ -71,7 +111,7 @@ class TestCommand(
             val correct = 25 - wrong
             val percentage = (correct.toDouble() / 25.toDouble()) * 100
             player.renderMiniMessage("<hover:show_text:'At <gray>${getDate(startTime)}<white>" +
-                    " (State: ${state}), with ${wrong} wrong Answers'><gray>Test ${index+1}, $timestamp</hover>: $percentage%")
+                    " (State: ${state}), with ${wrong} wrong Answers'><gray>Test ${index+1} (ID: $testid), $timestamp</hover>: $percentage%")
         }
     }
 

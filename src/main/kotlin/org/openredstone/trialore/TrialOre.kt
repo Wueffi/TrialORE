@@ -285,13 +285,16 @@ class TrialOre : JavaPlugin(), Listener {
     private fun sendTestReport(testInfo: TestInfo, testCount: Int) {
         val correct = 25 - testInfo.wrong
         val percentage = (correct.toDouble() / 25.toDouble()) * 100
+        var rotatingLight = ""
+        if (testInfo.end - testInfo.start <= 45 * 1000 ) { rotatingLight = ":rotating_light: :rotating_light: :rotating_light: <45 Seconds!!" }
         val lines = mutableListOf(
             "**Testificate**: ${database.uuidToUsernameCache[testInfo.testificate]}",
             "**Attempt**: $testCount",
             "**Start**: <t:${testInfo.start}:F>",
             "**End**: <t:${testInfo.end}:F>",
             "**Wrong**: ${testInfo.wrong}",
-            "**Percentage**: ${"%.2f".format(percentage)}%"
+            "**Percentage**: ${"%.2f".format(percentage)}%",
+            rotatingLight
         )
         val payload = mapOf(
             "embeds" to listOf(
