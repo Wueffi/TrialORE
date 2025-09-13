@@ -169,6 +169,12 @@ class Storage(
         }.count().toInt()
     }
 
+    fun setTestWrong(testId: Int, wrong: Int) = transaction(database) {
+        Test.update({ Test.id eq testId }) {
+            it[Test.wrong] = wrong
+        }
+    }
+
     fun insertNote(trialId: Int, note: String) = transaction(database) {
         Note.insert {
             it[trial_id] = trialId

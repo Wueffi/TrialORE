@@ -21,7 +21,6 @@ import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 import java.util.*
 import java.util.logging.Level
-import kotlin.time.Duration.Companion.seconds
 
 val VERSION = "1.1"
 
@@ -206,11 +205,6 @@ class TrialOre : JavaPlugin(), Listener {
         setLpParent(testificate, config.testificateGroup)
     }
 
-    fun startTest(testificate: UUID) {
-        val testId = this.database.insertTest(testificate)
-        this.testMapping[testificate] = testId
-    }
-
     fun endTrial(trialer: UUID, trialId: Int, passed: Boolean, finalNote: String? = null) {
         if (finalNote != null) {
             this.database.insertNote(trialId, finalNote)
@@ -230,7 +224,7 @@ class TrialOre : JavaPlugin(), Listener {
     fun endTest(testificate: UUID, testId: Int, passed: Boolean, wrong: Int) {
         this.database.endTest(testId, passed, wrong)
         this.testMapping.remove(testificate)
-        sendTestReport(database.getTestInfo(testId), database.getTestCount(testificate))
+        if (passed){ sendTestReport(database.getTestInfo(testId), database.getTestCount(testificate))}
     }
 
     fun getParent(uuid: UUID): String? = luckPerms.userManager.getUser(uuid)?.primaryGroup
@@ -332,5 +326,170 @@ class TrialOre : JavaPlugin(), Listener {
         val player = server.getPlayer(sender.uniqueId)!!
         player.renderMiniMessage("<red>$message</red>")
         return true
+    }
+
+    data class TestSession(
+        val testId: Int,
+        val questions: List<Int>,
+        var index: Int = 0,
+        var currentAnswer: String = "",
+        var wrong: Int = 0,
+        val used: MutableMap<Int, MutableSet<String>> = mutableMapOf()
+    )
+
+    val testSessions: MutableMap<UUID, TestSession> = mutableMapOf()
+    private val rand = Random()
+
+    fun startTest(testificate: UUID) {
+        val testId = this.database.insertTest(testificate)
+        this.testMapping[testificate] = testId
+
+        val categories = mutableListOf<Int>().apply {
+            repeat(4) { add(1) }
+            repeat(4) { add(2) }
+            repeat(8) { add(3) }
+            repeat(3) { add(4) }
+            repeat(3) { add(5) }
+            repeat(3) { add(6) }
+        }
+        categories.shuffle(rand)
+        val session = TestSession(testId, categories)
+        testSessions[testificate] = session
+
+        server.getPlayer(testificate)?.let { player -> sendNextQuestion(player, session)
+        }
+
+    }
+
+    fun sendNextQuestion(player: Player, session: TestSession) {
+        if (session.index >= session.questions.size) {
+            val passed = session.wrong <= 2
+            endTest(player.uniqueId, session.testId, passed, session.wrong)
+            testSessions.remove(player.uniqueId)
+            if (passed) {
+                player.renderMiniMessage("<green>Test finished. Wrong: ${session.wrong}</green>")
+                player.renderMiniMessage("<yellow>Use this ID in your Application: ${session.testId}")
+            } else {
+                player.renderMiniMessage("<red> You failed the test. Wrong: ${session.wrong}</red>")
+            }
+            return
+        }
+
+        if (session.wrong >= 3) {
+            player.renderMiniMessage("<red>You gave ${session.wrong} wrong answers (Fail). You can stop the test by doing <yellow>/test stop<red>.")
+        }
+        val cat = session.questions[session.index]
+        val (qText, expected) = generateQuestion(cat, session.used)
+        session.currentAnswer = expected
+        player.renderMiniMessage("<yellow>Question ${session.index + 1}/25:</yellow> $qText")
+    }
+
+    fun generateQuestion(category: Int, usedPerCategory: MutableMap<Int, MutableSet<String>>): Pair<String, String> {
+        val used = usedPerCategory.getOrPut(category) { mutableSetOf() }
+        fun makeKey(vararg parts: Any) = parts.joinToString(":")
+
+        fun randDecimal(): Int {
+            val options = (1..14).filterNot { it in listOf(0,1,2,4,8) }
+            return options[rand.nextInt(options.size)]
+        }
+
+        fun randTwoSC(): Int {
+            val options = (-8..7).filter { it != 0 }
+            return options[rand.nextInt(options.size)]
+        }
+
+        when(category) {
+            1 -> {
+                var attempts = 0
+                while (attempts++ < 200) {
+                    val value = randDecimal()
+                    val bin = value.toString(2).padStart(4,'0')
+                    val key = makeKey("conv-bin->dec", bin)
+                    if (key in used) continue
+                    used.add(key)
+                    return Pair("Convert binary $bin to decimal", value.toString())
+                }
+                return Pair("Convert binary 0101 to decimal", "5")
+            }
+
+            2 -> {
+                var attempts = 0
+                while (attempts++ < 200) {
+                    val value = randDecimal()
+                    val bin = value.toString(2).padStart(4,'0')
+                    val key = makeKey("conv-dec->bin", value)
+                    if (key in used) continue
+                    used.add(key)
+                    return Pair("Convert decimal $value to 4-bit binary", bin)
+                }
+                return Pair("Convert decimal 5 to 4-bit binary", "0101")
+            }
+
+            3 -> {
+                val gates = listOf("AND","NAND","OR","NOR","XOR","XNOR")
+                val gateIndex = used.size % gates.size
+                val op = if (gateIndex < 4) gates[gateIndex] else gates[rand.nextInt(gates.size)]
+                val a = rand.nextInt(1,15)
+                var b = rand.nextInt(1,15)
+                if (b == a) b = (b % 14) + 1
+                val aBin = (a and 0xF).toString(2).padStart(4,'0')
+                val bBin = (b and 0xF).toString(2).padStart(4,'0')
+                val result = when(op){
+                    "AND" -> a and b
+                    "NAND" -> (a and b) xor 0xF
+                    "OR" -> a or b
+                    "NOR" -> (a or b) xor 0xF
+                    "XOR" -> a xor b
+                    "XNOR" -> (a xor b) xor 0xF
+                    else -> 0
+                } and 0xF
+                val ansBin = result.toString(2).padStart(4,'0')
+                used.add(makeKey("gate",op,aBin,bBin))
+                return Pair("Apply $op to $aBin and $bBin — give the 4-bit binary result", ansBin)
+            }
+
+            4 -> {
+                var attempts = 0
+                while (attempts++ < 200) {
+                    val value = randTwoSC()
+                    val twos = (value and 0xF).toString(2).padStart(4,'0')
+                    val key = makeKey("to-2sc",value)
+                    if (key in used) continue
+                    used.add(key)
+                    return Pair("Write $value as 4-bit two's complement (2sc) binary", twos)
+                }
+                return Pair("Write -2 as 4-bit two's complement (2sc) binary", "1110")
+            }
+
+            5 -> {
+                var attempts = 0
+                while (attempts++ < 200) {
+                    val x = randTwoSC() and 0xF
+                    val signed = if(x and 0x8 !=0) x-16 else x
+                    val bin = x.toString(2).padStart(4,'0')
+                    val key = makeKey("from-2sc",bin)
+                    if(key in used) continue
+                    used.add(key)
+                    return Pair("What is 4-bit two's complement $bin equal to in decimal?", signed.toString())
+                }
+                return Pair("What is 4-bit two's complement 1110 equal to in decimal?","-2")
+            }
+
+            6 -> {
+                var attempts = 0
+                while(attempts++ < 200){
+                    val v = rand.nextInt(1,9)
+                    val neg = (-v) and 0xF
+                    val negBin = neg.toString(2).padStart(4,'0')
+                    val key = makeKey("neg-2sc",v)
+                    if(key in used) continue
+                    used.add(key)
+                    return Pair("What is the 2's complement (4-bit) representation of -$v ?",negBin)
+                }
+                return Pair("What is the 2's complement (4-bit) representation of -5 ?","1011")
+            }
+
+            else -> return Pair("Invalid category","")
+        }
     }
 }
