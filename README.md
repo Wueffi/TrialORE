@@ -4,14 +4,14 @@ ORE's trial management and test plugin
 
 ## Test Command Usage
 
-| Command                            | Alias                  | Description                                  |
-|------------------------------------|------------------------|----------------------------------------------|
-| `/test start`                      | `/starttest`           | Start a Test                                 |
-| `/test history`                    |                        | Shows your test history                      |
-| `/test list [user]`                |                        | Lists the passed tests of an individual      |
-| `/test stop `                      | `/stoptest`            | Stop your current test run                   |
-| `/test info [id]`                  |                        | Check if the test with the given id is valid |
-| `/test answer [answer]`            | `/testanswer [answer]` | Answer a question of the test.               |
+| Command                            | Alias                  | Permission    | Description                                  |
+|------------------------------------|------------------------|---------------|----------------------------------------------|
+| `/test start`                      | `/starttest`           | trialore.test | Start a Test                                 |
+| `/test history`                    |                        | trialore.test | Shows your test history                      |
+| `/test list [user]`                |                        | trialore.list | Lists the passed tests of an individual      |
+| `/test stop `                      | `/stoptest`            | trialore.test | Stop your current test run                   |
+| `/test info [id]`                  |                        | trialore.list | Check if the test with the given id is valid |
+| `/test answer [answer]`            | `/testanswer [answer]` | trialore.test | Answer a question of the test.               |
 
 ## Doing a test
 1. Start the test using `/test start`.
