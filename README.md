@@ -1,6 +1,23 @@
 # TrialORE
 
-ORE's trial management plugin
+ORE's trial management and test plugin
+
+## Test Command Usage
+
+| Command                            | Alias                  | Description                             |
+|------------------------------------|------------------------|-----------------------------------------|
+| `/test start`                      | `/starttest`           | Start a Test                            |
+| `/test history`                    |                        | Shows your test history                 |
+| `/test list [user]`                |                        | Lists the passed tests of an individual |
+| `/test stop `                      | `/stoptest`            | Stop your current test run              |
+| `/test answer [answer]`            | `/testanswer [answer]` | Answer a question of the test.          |
+
+## Doing a test
+1. Start the test using `/test start`.
+2. Once you get asked a question run `/test answer [answer]`. \
+The answer should be the answer you think is correct without any prefix. For example it should not be `0b1111` but `1111`.
+3. After you finished the test and passed you get a test-id. Paste it in your App. \
+Staff are going to use this to verify your test.
 
 ## Full Command Usage
 
