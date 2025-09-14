@@ -34,18 +34,20 @@ class TestCommand(
 
         val now = System.currentTimeMillis()
         val lastThreeTests = tests.takeLast(3)
-        val lastThreeWithin24h = lastThreeTests.all { test ->
-            val testInfo = trialORE.database.getTestInfo(test)
-            if (testInfo == null) {
-                player.sendMessage("Test id was null. Report this to Staff.")
+        if (lastThreeTests.size == 3) {
+            val lastThreeWithin24h = lastThreeTests.all { test ->
+                val testInfo = trialORE.database.getTestInfo(test)
+                    ?: run {
+                        player.sendMessage("Test id was null. Report this to Staff.")
+                        return@all false
+                    }
+                val startTimeMs = testInfo.start.toLong() * 1000L
+                now - startTimeMs <= 24 * 60 * 60 * 1000L
+            }
+            if (lastThreeWithin24h) {
+                player.renderMiniMessage("<red>Warning: Your last 3 tests were all taken within the last 24 hours! Do /test history to see them.</red>")
                 return
             }
-            val startTime = testInfo.start.toLong()
-            now - startTime <= 24 * 60 * 60 * 1000
-        }
-        if (lastThreeWithin24h && lastThreeTests.size == 3) {
-            player.renderMiniMessage("<red>Warning: Your last 3 tests were all taken within the last 24 hours! Do /test history to see them.</red>")
-            return
         }
         testificate.renderMessage("Starting your test!")
         testificate.renderMiniMessage("<red>Note: When answering in binary, don't use a prefix like 0b.")
