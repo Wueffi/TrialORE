@@ -379,8 +379,7 @@ class TrialOre : JavaPlugin(), Listener {
             endTest(player.uniqueId, session.testId, passed, session.wrong)
             testSessions.remove(player.uniqueId)
             if (passed) {
-                player.renderMiniMessage("<green>Test finished. Wrong: ${session.wrong}</green>")
-                player.renderMiniMessage("<yellow>Use this ID in your Application: ${session.testId}")
+                player.renderMiniMessage("<green>Test finished(${session.testId}). Wrong: ${session.wrong}</green>")
             } else {
                 player.renderMiniMessage("<red> You failed the test. Wrong: ${session.wrong}</red>")
             }
