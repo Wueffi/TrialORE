@@ -42,7 +42,8 @@ data class TrialOreConfig(
     val testificateGroup: String = "testificate",
     val builderGroup: String = "builder",
     val webhook: String = "webhook",
-    val abandonForgiveness: Long = 6000
+    val abandonForgiveness: Long = 6000,
+    val sendFailedTests: Boolean = true
 )
 
 data class TrialMeta(
@@ -225,7 +226,9 @@ class TrialOre : JavaPlugin(), Listener {
         this.database.endTest(testId, passed, wrong)
         this.testMapping.remove(testificate)
         val testInfo = database.getTestInfo(testId)
-        if (passed && testInfo != null){ sendTestReport(testInfo, database.getTestCount(testificate))}
+        if (testInfo?.wrong == 25) { return }
+        if ((config.sendFailedTests || passed) && testInfo != null)
+        sendTestReport(testInfo, database.getTestCount(testificate))
     }
 
     fun getParent(uuid: UUID): String? = luckPerms.userManager.getUser(uuid)?.primaryGroup
@@ -297,16 +300,21 @@ class TrialOre : JavaPlugin(), Listener {
             "**Percentage**: ${"%.2f".format(percentage)}%",
             rotatingLight
         )
+        val color = if(testInfo.passed) {
+            0x5fff58
+        } else {
+            0xff5858
+        }
         val payload = mapOf(
             "embeds" to listOf(
                 mapOf(
                     "title" to database.uuidToUsernameCache[testInfo.testificate],
                     "description" to lines.joinToString("\n"),
-                    "color" to 0x5fff58,
+                    "color" to color,
                     "fields" to listOf(
                         mapOf(
                             "name" to "State",
-                            "value" to "*Passed*"
+                            "value" to testInfo.passed
                         )
                     )
                 )
@@ -379,9 +387,6 @@ class TrialOre : JavaPlugin(), Listener {
             return
         }
 
-        if (session.wrong >= 3) {
-            player.renderMiniMessage("<red>You gave ${session.wrong} wrong answers (Fail). You can stop the test by doing <yellow>/test stop<red>.")
-        }
         val cat = session.questions[session.index]
         val (qText, expected) = generateQuestion(cat, session.used)
         session.currentAnswer = expected

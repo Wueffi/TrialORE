@@ -2,7 +2,9 @@ package org.openredstone.trialore
 
 import co.aikar.commands.BaseCommand
 import co.aikar.commands.annotation.*
+import org.bukkit.Bukkit
 import org.bukkit.entity.Player
+
 
 @CommandAlias("test")
 @CommandPermission("trialore.test")
@@ -21,9 +23,16 @@ class TestCommand(
         if (trialORE.testMapping.containsKey(testificate.uniqueId)) {
             throw TrialOreException("You are already testing. This is 99.9% a Bug. Contact Nick :D")
         }
+        val tests = trialORE.database.getTests(testificate.uniqueId)
+        tests.forEachIndexed { index, testid ->
+            val testInfo = trialORE.database.getTestInfo(testid)
+            if (testInfo?.passed ?: false) {
+                player.renderMiniMessage("<green>You already passed the test!")
+                return
+            }
+        }
 
         val now = System.currentTimeMillis()
-        val tests = trialORE.database.getTests(testificate.uniqueId)
         val lastThreeTests = tests.takeLast(3)
         val lastThreeWithin24h = lastThreeTests.all { test ->
             val testInfo = trialORE.database.getTestInfo(test)
@@ -70,38 +79,59 @@ class TestCommand(
                 val percentage = (correct.toDouble() / 25.toDouble()) * 100
                 val duration = testInfo.end.toLong() - startTime
                 var rotatingLight = ""
-                if (duration <= 45 * 1000) { rotatingLight = ":rotating_light: :rotating_light: :rotating_light: Test done in ${duration}s"}
+                if (duration <= 45) { rotatingLight = ":rotating_light: :rotating_light: :rotating_light: Test done in ${duration}s"}
                 player.renderMiniMessage("<hover:show_text:'At <gray>${getDate(startTime)}<white>" +
-                        ", $wrong wrong Answers'>Test: ${index+1} (${percentage}), $timestamp</hover> $rotatingLight")
+                        ", $wrong wrong Answers'>Test: ${index+1} (<green>${percentage}<white>), $timestamp</hover> $rotatingLight")
             }
         }
     }
 
     @Subcommand("info")
     @CommandPermission("trialore.list")
-    @Description("Get a test from an ID")
+    @Description("Check a user's test")
     fun onInfo(player: Player, @Single id: Int) {
         val testInfo = trialORE.database.getTestInfo(id)
         if (testInfo == null) {
-            player.sendMessage("Test id was null. If you are Nick, have fun. If not, report to Nick.")
+            player.sendMessage("Test not existant. If you are Nick, have fun. If you believe this is an error, report to Nick.")
             return
         }
         val startTime = testInfo.start.toLong()
         val duration = testInfo.end.toLong() - startTime
         var rotatingLight = ""
-        if (duration <= 45 * 1000) { rotatingLight = ":rotating_light: :rotating_light: :rotating_light: Test done in ${duration}s"}
+        if (duration <= 45) { rotatingLight = ":rotating_light: :rotating_light: :rotating_light: Test done in ${duration}s"}
         val timestamp = getRelativeTimestamp(startTime)
         val wrong = testInfo.wrong
         val testificate = testInfo.testificate
         val correct = 25 - wrong
         val percentage = (correct.toDouble() / 25.toDouble()) * 100
         if (testInfo.passed) {
-            player.renderMiniMessage("<hover:show_text:'<green>Passed! At <gray>${getDate(startTime)}<white> by $testificate" +
-                    ", $wrong wrong Answers'>Test: $id (${percentage}), $timestamp</hover> $rotatingLight")
+            player.renderMiniMessage("<hover:show_text:'At <gray>${getDate(startTime)}<white> by $testificate" +
+                    ", $wrong wrong Answers'><green>Passed! <gray>Test: $id (<green>${percentage}<gray>), $timestamp</hover><white> $rotatingLight")
         } else {
             player.renderMiniMessage("<hover:show_text:'<red>Failed! At <gray>${getDate(startTime)}<white> by $testificate" +
-                    ", $wrong wrong Answers'>Test: $id (${percentage}), $timestamp</hover>")
+                    ", $wrong wrong Answers'><red>Failed! <gray>Test: $id (<red>${percentage}<gray>), $timestamp</hover>")
         }
+    }
+
+    @Subcommand("check")
+    @CommandPermission("trialore.list")
+    @Description("Check if a User passed the test")
+    @CommandAlias("check")
+    fun onCheck(player: Player, target: String) {
+        val testificate = Bukkit.getOfflinePlayer(target)
+        val tests = trialORE.database.getTests(testificate.uniqueId)
+        if (tests.isEmpty()) {
+            player.renderMiniMessage("<red>Target has not been in any test.")
+            return
+        }
+        tests.forEachIndexed { index, testid ->
+            val testInfo = trialORE.database.getTestInfo(testid)
+            if (testInfo?.passed ?: false) {
+                player.renderMiniMessage("<green>Target passed the test!")
+                return
+            }
+        }
+        player.renderMiniMessage("<red>Target has failed all their tests!")
     }
 
     @Subcommand("history")
@@ -117,10 +147,14 @@ class TestCommand(
                 player.sendMessage("Test id was null. Report this to Staff.")
                 return
             }
-            val state = if (testInfo.passed) {
-                "<green>Passed</green>"
+            var state = ""
+            var color = ""
+            if (testInfo.passed) {
+                state = "Passed"
+                color = "<green>"
             } else {
-                "<red>Failed</red>"
+                state = "Failed"
+                color = "<red>"
             }
             val startTime = testInfo.start.toLong()
             val timestamp = getRelativeTimestamp(startTime)
@@ -128,7 +162,7 @@ class TestCommand(
             val correct = 25 - wrong
             val percentage = (correct.toDouble() / 25.toDouble()) * 100
             player.renderMiniMessage("<hover:show_text:'At <gray>${getDate(startTime)}<white>" +
-                    " (State: ${state}), with ${wrong} wrong Answers'><gray>Test ${index+1} (ID: $testid), $timestamp</hover>: $percentage%")
+                    " (State: $color${state}<white>), with ${wrong} wrong Answers'><gray>Test ${index+1} (ID: $testid), $timestamp</hover>: $color$percentage%<gray>")
         }
     }
 

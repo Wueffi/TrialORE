@@ -3,3 +3,4 @@ testificateGroup: "testificate"
 builderGroup: "builder"
 webhook: "https://discord.com/api/webhooks/XXXX/XXXXXXXXXXXXXXXX"
 abandonForgiveness: 6000
+sendFailedTests: true

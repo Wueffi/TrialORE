@@ -4,14 +4,15 @@ ORE's trial management and test plugin
 
 ## Test Command Usage
 
-| Command                            | Alias                  | Permission    | Description                                  |
-|------------------------------------|------------------------|---------------|----------------------------------------------|
-| `/test start`                      | `/starttest`           | trialore.test | Start a test                                 |
-| `/test history`                    |                        | trialore.test | Shows your test history                      |
-| `/test list [user]`                |                        | trialore.list | Lists the passed tests of an individual      |
-| `/test stop `                      | `/stoptest`            | trialore.test | Stop your current test run                   |
-| `/test info [id]`                  |                        | trialore.list | Show all info of a test with the given ID    |
-| `/test answer [answer]`            | `/testanswer [answer]` | trialore.test | Answer a question of the test                |
+| Command                 | Alias         | Permission    | Description                               |
+|-------------------------|---------------|---------------|-------------------------------------------|
+| `/test start`           | `/starttest`  | trialore.test | Start a test                              |
+| `/test history`         |               | trialore.test | Shows your test history                   |
+| `/test list [user]`     |               | trialore.list | Lists the passed tests of an individual   |
+| `/test stop `           | `/stoptest`   | trialore.test | Stop your current test run                |
+| `/test info [id]`       |               | trialore.list | Show all info of a test with the given ID |
+| `/test check [user]`    | `/check`      | trialore.list | Check if a user passed the test           |
+| `/test answer [answer]` | `/testanswer` | trialore.test | Answer a question of the test             |
 
 ## Doing a test
 1. Start the test using `/test start`.
