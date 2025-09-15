@@ -30,8 +30,8 @@ object Test : Table("test") {
     val testificate = varchar("testificate", 36).index()
     val start = integer("start")
     val end = integer("end").nullable()
-    val passed = bool("passed").nullable()
-    val wrong = integer("wrong").nullable()
+    val passed = bool("passed")
+    val wrong = integer("wrong")
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -93,6 +93,8 @@ class Storage(
         Test.insert {
             it[Test.testificate] = testificate.toString()
             it[start] = now()
+            it[Test.passed] = false
+            it[Test.wrong] = 25
         }[Test.id]
     }
 
@@ -151,8 +153,8 @@ class Storage(
             UUID.fromString(resultRow[Test.testificate]),
             resultRow[Test.start],
             resultRow[Test.end] ?: 0,
-            resultRow[Test.passed] ?: false,
-            resultRow[Test.wrong] ?: 0
+            resultRow[Test.passed],
+            resultRow[Test.wrong]
         )
     }
 
