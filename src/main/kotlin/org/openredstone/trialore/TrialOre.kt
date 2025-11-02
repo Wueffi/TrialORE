@@ -53,7 +53,7 @@ data class TrialMeta(
 
 data class TestMeta(
     val testificate: UUID,
-    val testId: Int
+    val session: TrialOre.TestSession
 )
 
 class TrialOre : JavaPlugin(), Listener {
@@ -61,7 +61,7 @@ class TrialOre : JavaPlugin(), Listener {
     lateinit var luckPerms: LuckPerms
     lateinit var config: TrialOreConfig
     val trialMapping: MutableMap<UUID, Pair<UUID, Int>> = mutableMapOf()
-    val testMapping: MutableMap<UUID, Int> = mutableMapOf()
+    val testMapping: MutableMap<UUID, TestSession> = mutableMapOf()
     private val mapper = ObjectMapper(YAMLFactory())
     override fun onEnable() {
         loadConfig()
@@ -126,10 +126,20 @@ class TrialOre : JavaPlugin(), Listener {
             dataFolder.mkdir()
         }
         val configFile = File(dataFolder, "config.yml")
-        // does not overwrite or throw
-        configFile.createNewFile()
-        val config = mapper.readTree(configFile)
-        val loadedConfig = mapper.treeToValue(config, TrialOreConfig::class.java)
+        if (!configFile.exists() || configFile.length() == 0L) {
+            configFile.createNewFile()
+            val defaultConfig = TrialOreConfig()
+            mapper.writeValue(configFile, defaultConfig)
+        }
+
+        val loadedConfig: TrialOreConfig = try {
+            val config = mapper.readTree(configFile)
+            mapper.treeToValue(config, TrialOreConfig::class.java)
+        } catch (e: Exception) {
+            logger.warning("Failed to load config.yml, using defaults. $e")
+            TrialOreConfig()
+        }
+
         logger.info("Loaded config.yml")
         return loadedConfig
     }
@@ -193,9 +203,9 @@ class TrialOre : JavaPlugin(), Listener {
                 }, config.abandonForgiveness)
             }
         }
-        testMapping.forEach { (testtaker, testId) ->
+        testMapping.forEach { (testtaker, session) ->
             if (uuid == testtaker) {
-                endTest(testtaker, testId, false, 25)
+                endTest(testtaker, session.startingtime, false, 25)
             }
         }
     }
@@ -222,13 +232,14 @@ class TrialOre : JavaPlugin(), Listener {
         sendReport(database.getTrialInfo(trialId), database.getTrialCount(testificate))
     }
 
-    fun endTest(testificate: UUID, testId: Int, passed: Boolean, wrong: Int) {
-        this.database.endTest(testId, passed, wrong)
+    fun endTest(testificate: UUID, startingtime: Int, passed: Boolean, wrong: Int): Int {
+        val testId = this.database.endTest(testificate, startingtime, passed, wrong)
         this.testMapping.remove(testificate)
         val testInfo = database.getTestInfo(testId)
-        if (testInfo?.wrong == 25) { return }
+        if (testInfo?.wrong == 25) { return 0 }
         if ((config.sendFailedTests || passed) && testInfo != null)
         sendTestReport(testInfo, database.getTestCount(testificate))
+        return testId
     }
 
     fun getParent(uuid: UUID): String? = luckPerms.userManager.getUser(uuid)?.primaryGroup
@@ -341,7 +352,7 @@ class TrialOre : JavaPlugin(), Listener {
     }
 
     data class TestSession(
-        val testId: Int,
+        val startingtime: Int,
         val questions: List<Int>,
         var index: Int = 0,
         var currentAnswer: String = "",
@@ -353,8 +364,8 @@ class TrialOre : JavaPlugin(), Listener {
     private val rand = Random()
 
     fun startTest(testificate: UUID) {
-        val testId = this.database.insertTest(testificate)
-        this.testMapping[testificate] = testId
+        // val testId = this.database.insertTest(testificate)
+        val startingtime = now()
 
         val categories = mutableListOf<Int>().apply {
             repeat(4) { add(1) }
@@ -365,7 +376,8 @@ class TrialOre : JavaPlugin(), Listener {
             repeat(3) { add(6) }
         }
         categories.shuffle(rand)
-        val session = TestSession(testId, categories)
+        val session = TestSession(startingtime, categories)
+        this.testMapping[testificate] = session
         testSessions[testificate] = session
 
         server.getPlayer(testificate)?.let { player -> sendNextQuestion(player, session)
@@ -376,10 +388,10 @@ class TrialOre : JavaPlugin(), Listener {
     fun sendNextQuestion(player: Player, session: TestSession) {
         if (session.index >= session.questions.size) {
             val passed = session.wrong <= 2
-            endTest(player.uniqueId, session.testId, passed, session.wrong)
+            val testId = endTest(player.uniqueId, session.startingtime, passed, session.wrong)
             testSessions.remove(player.uniqueId)
             if (passed) {
-                player.renderMiniMessage("<green>Test finished(${session.testId}). Wrong: ${session.wrong}</green>")
+                player.renderMiniMessage("<green>Test (${testId}) finished. Wrong: ${session.wrong}</green>")
             } else {
                 player.renderMiniMessage("<red> You failed the test. Wrong: ${session.wrong}</red>")
             }

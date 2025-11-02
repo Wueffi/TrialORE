@@ -23,14 +23,11 @@ class TestCommand(
         if (trialORE.testMapping.containsKey(testificate.uniqueId)) {
             throw TrialOreException("You are already testing. This is 99.9% a Bug. Contact Nick :D")
         }
-        val tests = trialORE.database.getTests(testificate.uniqueId)
-        tests.forEachIndexed { index, testid ->
-            val testInfo = trialORE.database.getTestInfo(testid)
-            if (testInfo?.passed ?: false) {
-                player.renderMiniMessage("<green>You already passed the test!")
-                return
-            }
+        if (trialORE.database.didPass(testificate.uniqueId)) {
+            player.renderMiniMessage("<green>You already passed the test!")
+            return
         }
+        val tests = trialORE.database.getTests(testificate.uniqueId)
 
         val now = System.currentTimeMillis()
         val lastThreeTests = tests.takeLast(3)
@@ -38,7 +35,7 @@ class TestCommand(
             val lastThreeWithin24h = lastThreeTests.all { test ->
                 val testInfo = trialORE.database.getTestInfo(test)
                     ?: run {
-                        player.sendMessage("Test id was null. Report this to Staff.")
+                        player.sendMessage("Could not get last 3 tests... Report this to Staff.")
                         return@all false
                     }
                 val startTimeMs = testInfo.start.toLong() * 1000L
@@ -174,7 +171,7 @@ class TestCommand(
     @Description("Stop a test")
     fun onStop(player: Player, testMeta: TestMeta) {
         player.renderMessage("You have exited your test")
-        trialORE.endTest(player.uniqueId, testMeta.testId, false, wrong = 25)
+        trialORE.endTest(player.uniqueId, testMeta.session.startingtime, false, wrong = 25)
     }
 
     @CommandAlias("testanswer")
@@ -205,7 +202,7 @@ class TestCommand(
         } else {
             player.renderMiniMessage("<red>Incorrect Answer. Expected: $expected</red>")
             session.wrong++
-            trialORE.database.setTestWrong(session.testId, session.wrong)
+            // trialORE.database.setTestWrong(session.testId, session.wrong)
         }
 
         session.index++

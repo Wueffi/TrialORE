@@ -89,15 +89,6 @@ class Storage(
         }[Trial.id]
     }
 
-    fun insertTest(testificate: UUID): Int = transaction(database) {
-        Test.insert {
-            it[Test.testificate] = testificate.toString()
-            it[start] = now()
-            it[Test.passed] = false
-            it[Test.wrong] = 25
-        }[Test.id]
-    }
-
     fun endTrial(trialId: Int, passed: Boolean) = transaction(database) {
         Trial.update({ Trial.id eq trialId}) {
             it[end] = now()
@@ -105,27 +96,29 @@ class Storage(
         }
     }
 
-    fun endTest(testId: Int, passed: Boolean, wrong: Int) = transaction(database) {
-        Test.update( {Test.id eq testId}) {
-            it[end] = now()
+    fun endTest(testificate: UUID, startingtime: Int, passed: Boolean, wrong: Int) = transaction(database) {
+        Test.insert {
+            it[Test.testificate] = testificate.toString()
+            it[start] = startingtime
             it[Test.passed] = passed
             it[Test.wrong] = wrong
-        }
+            it[end] = now()
+        }[Test.id]
     }
 
     fun getTrials(testificate: UUID): List<Int> = transaction(database) {
-        Trial.selectAll().where {
-            Trial.testificate eq testificate.toString()
-        }.map {
+        Query(
+            Trial, Trial.testificate eq testificate.toString()
+        ).map {
             it[Trial.id]
         }
     }
 
     fun getTests(testificate: UUID): List<Int> = transaction(database) {
-        Test.selectAll().where {
-            Test.testificate eq testificate.toString()
-        }.map {
-            it[Test.id]
+        Query(
+            Test, Test.testificate eq testificate.toString()
+        ).map {
+                it[Test.id]
         }
     }
 
@@ -170,12 +163,6 @@ class Storage(
         }.count().toInt()
     }
 
-    fun setTestWrong(testId: Int, wrong: Int) = transaction(database) {
-        Test.update({ Test.id eq testId }) {
-            it[Test.wrong] = wrong
-        }
-    }
-
     fun insertNote(trialId: Int, note: String) = transaction(database) {
         Note.insert {
             it[trial_id] = trialId
@@ -199,6 +186,17 @@ class Storage(
         }.associate {
             it[Note.id] to it[Note.value]
         }
+    }
+
+    fun didPass(testificate: UUID) : Boolean {
+        val tests = getTests(testificate)
+        tests.forEachIndexed { index, testid ->
+            val testInfo = getTestInfo(testid)
+            if (testInfo?.passed ?: false) {
+                return true
+            }
+        }
+        return false
     }
 
     fun ensureCachedUsername(user: UUID, username: String) = transaction(database) {
